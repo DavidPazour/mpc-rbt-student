@@ -1,4 +1,4 @@
-#include <mpc-rbt-solution/Sender.hpp>
+﻿#include <mpc-rbt-solution/Sender.hpp>
 
 void Sender::Node::run()
 {
@@ -12,8 +12,6 @@ void Sender::Node::run()
 
 void Sender::Node::onDataTimerTick()
 {
-  UNIMPLEMENTED(__PRETTY_FUNCTION__);
-
   data.timestamp =
     static_cast<uint64_t>(std::chrono::system_clock::now().time_since_epoch().count());
 
@@ -21,7 +19,15 @@ void Sender::Node::onDataTimerTick()
     .port = config.remotePort,
     .address = config.remoteAddress,
   };
-  RCLCPP_INFO(logger, "Sending data to host: '%s:%d'", frame.address.c_str(), frame.port);
 
-  RCLCPP_INFO(logger, "\n\tstamp: %ld", data.timestamp);
+  data.x++;
+  data.y++;
+  data.z++;
+
+  Utils::Message::serialize(frame, data);
+
+if (this->send(frame))
+  {
+    RCLCPP_INFO(logger, "Sending: x=%.2f, y=%.2f, z=%.2f", data.x, data.y, data.z);
+  }
 }

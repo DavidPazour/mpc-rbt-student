@@ -1,4 +1,4 @@
-#include <mpc-rbt-solution/Receiver.hpp>
+﻿#include <mpc-rbt-solution/Receiver.hpp>
 
 void Receiver::Node::run()
 {
@@ -18,7 +18,9 @@ void Receiver::Node::run()
 
 void Receiver::Node::onDataReceived(const Socket::IPFrame & frame)
 {
-  UNIMPLEMENTED(__PRETTY_FUNCTION__);
-
+  Utils::Message data;
+  if (Utils::Message::deserialize(frame, data)) {  // Bod 3.a
+    RCLCPP_INFO(logger, "Přijato: x=%.2f, y=%.2f, z=%.2f", data.x, data.y, data.z);
+  }
   RCLCPP_INFO(logger, "\n\tstamp: %ld", data.timestamp);
 }

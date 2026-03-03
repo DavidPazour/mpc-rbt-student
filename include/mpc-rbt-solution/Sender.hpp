@@ -1,4 +1,4 @@
-#ifndef COMMUNICATION_EXAMPLE_SENDER_H
+﻿#ifndef COMMUNICATION_EXAMPLE_SENDER_H
 #define COMMUNICATION_EXAMPLE_SENDER_H
 
 // clang-format off
@@ -18,7 +18,10 @@ public:
     config(senderConfig),
     timer_period(config.sendingPeriodMillis)
   {
-    UNIMPLEMENTED(__PRETTY_FUNCTION__);
+    this->create();
+    this->configure();
+    this->bind();  
+    callback = [this] { onDataTimerTick(); };
   }
 
   void run();

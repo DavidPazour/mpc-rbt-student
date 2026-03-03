@@ -1,4 +1,4 @@
-#ifndef COMMUNICATION_EXAMPLE_RECEIVER_H
+﻿#ifndef COMMUNICATION_EXAMPLE_RECEIVER_H
 #define COMMUNICATION_EXAMPLE_RECEIVER_H
 
 #include <mpc-rbt-solution/util/Socket.hpp>
@@ -12,7 +12,10 @@ public:
   explicit Node(const Utils::Config::Receiver & receiverConfig)
   : Socket::UDP(receiverConfig.localPort), config(receiverConfig)
   {
-    UNIMPLEMENTED(__PRETTY_FUNCTION__);
+    this->create();
+    this->configure();
+    this->bind();
+    callback = [this](const Socket::IPFrame & frame) { onDataReceived(frame); };
   }
 
   void run();
