@@ -1,7 +1,7 @@
 name: "communication_example"
 root: <%= @settings["working_directory"]%>
 
-on_project_start: echo "Build the programs here !"
+on_project_start: ./build.sh
 pre_window:
   - source /opt/ros/humble/setup.bash
 
@@ -10,5 +10,5 @@ windows:
   - debugging:
       layout: even-vertical
       panes:
-        - echo "Run the receiver here !"
-        - echo "Run the sender here !"
+        - ./run_receiver.sh
+        - ./run_sender.sh

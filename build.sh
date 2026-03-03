@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# 1. Vytvoření build složky, pokud neexistuje
+# musis udelat idk
+source /opt/ros/humble/setup.bash
+
+#  Vytvoření build složky, pokud neexistuje
 mkdir -p build
 
-# 2. Vstup do složky
+#  Vstup do složky
 cd build
 
-# 3. Konfigurace projektu (předpokládáme, že závislosti už máš v systému)
-cmake ..
-
-# 4. Samotná kompilace
+#  Samotná kompilace
 make
