@@ -4,6 +4,7 @@ root: <%= @settings["working_directory"]%>
 on_project_start: ./build.sh
 pre_window:
   - source /opt/ros/humble/setup.bash
+  - export LOG_LEVEL=2
 
 startup_window: debugging
 windows:
