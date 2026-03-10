@@ -7,4 +7,5 @@ mkdir -p build
 cd build
 
 #  Samotná kompilace
-make
+cmake ..
+make -j$(nproc)
