@@ -1,0 +1,58 @@
+name: Tests
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+on:
+  push:
+    branches: [ linux-intro ]
+  pull_request:
+    branches: [ linux-intro ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        step: [build, run, tests]
+
+    name: Testing solution (${{ matrix.step }})
+    runs-on: ubuntu-22.04
+    container: ros:humble-ros-base-jammy
+    timeout-minutes: 2
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Install dependencies
+        shell: bash
+        run: sudo apt update && sudo apt install nlohmann-json3-dev jq -y
+      - name: Running build script
+        id: build
+        if: matrix.step=='build' || matrix.step=='run'
+        shell: bash
+        run: source /opt/ros/humble/setup.bash && ./build.sh
+      - name: Running sender script
+        if: matrix.step=='run' && steps.build.outcome=='success'
+        shell: bash
+        run: |
+          jq ".sender.sendingPeriodMillis = 200" config.json > tmp.json && mv tmp.json config.json
+          ./run_sender.sh &
+          sleep 1
+      - name: Running receiver script
+        if: matrix.step=='run' && steps.build.outcome=='success'
+        shell: bash
+        run: |
+          ./run_receiver.sh &
+          sleep 1
+      - name: Running tests
+        if: matrix.step=='tests'
+        id: test
+        shell: bash
+        run: source /opt/ros/humble/setup.bash && colcon build && colcon test --ctest-args tests
+      - name: Showing test results
+        if: matrix.step=='tests' && steps.test.outcome=='success'
+        shell: bash
+        run: source /opt/ros/humble/setup.bash && colcon test-result --verbose --all

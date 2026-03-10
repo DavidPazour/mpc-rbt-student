@@ -1,0 +1,15 @@
+name: "communication_example"
+root: /mnt/c/Users/admin/skola/RBT/workplace
+
+on_project_start: ./build.sh
+pre_window:
+  - source /opt/ros/humble/setup.bash
+  - export LOG_LEVEL=2
+
+startup_window: debugging
+windows:
+  - debugging:
+      layout: even-vertical
+      panes:
+        - ./run_receiver.sh
+        - ./run_sender.sh

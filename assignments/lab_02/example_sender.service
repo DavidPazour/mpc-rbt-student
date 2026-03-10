@@ -1,0 +1,16 @@
+[Unit]
+Description = Example sender
+Wants = network-online.target
+After = local-fs.target network-online.target
+
+[Service]
+User = pazzy1666
+WorkingDirectory = /mnt/c/Users/admin/skola/RBT/workplace
+ExecStart = /mnt/c/Users/admin/skola/RBT/workplace/run_sender.sh
+
+Restart = on-failure
+RestartSec = 5
+TimeoutStopSec = 5
+
+[Install]
+WantedBy = multi-user.target
