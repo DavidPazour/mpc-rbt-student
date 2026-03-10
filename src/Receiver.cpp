@@ -18,7 +18,6 @@ void Receiver::Node::run()
 
 void Receiver::Node::onDataReceived(const Socket::IPFrame & frame)
 {
-  Utils::Message data;
   if (Utils::Message::deserialize(frame, data)) {  // Bod 3.a
     RCLCPP_INFO(logger, "Přijato: x=%.2f, y=%.2f, z=%.2f", data.x, data.y, data.z);
   }
