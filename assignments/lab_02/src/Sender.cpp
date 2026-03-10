@@ -23,6 +23,7 @@ void Sender::Node::onDataTimerTick()
   data.x++;
   data.y++;
   data.z++;
+  data.frame = "data";
 
   Utils::Message::serialize(frame, data);
 
