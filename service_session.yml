@@ -1,10 +1,10 @@
-name: "communication_example"
-root: <%= @settings["working_directory"]%>
+name: "service_monitoring"
+root: /mnt/c/Users/admin/skola/RBT/workplace
 
 startup_window: monitoring
 windows:
   - monitoring:
       layout: even-vertical
       panes:
-        - echo "Watch the receiver status here !"
-        - echo "Watch the sender status here !"
+        - watch "systemctl status example_receiver"
+        - watch "systemctl status example_sender"

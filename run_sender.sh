@@ -5,9 +5,9 @@ source /opt/ros/humble/setup.bash
 export LOG_LEVEL=1
 
 # Vstup do složky
-cd "/mnt/c/Users/admin/OneDrive - VUT/Plocha/skola/ctvrtak letni/RBT/workplace/build"
+cd /mnt/c/Users/admin/skola/RBT/workplace/build
 
 # spusteni
-./sender_node "/mnt/c/Users/admin/OneDrive - VUT/Plocha/skola/ctvrtak letni/RBT/workplace/config.json"
+./sender_node /mnt/c/Users/admin/skola/RBT/workplace/config.json
 
 

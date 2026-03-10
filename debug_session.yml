@@ -1,5 +1,5 @@
 name: "communication_example"
-root: <%= @settings["working_directory"]%>
+root: /mnt/c/Users/admin/skola/RBT/workplace
 
 on_project_start: ./build.sh
 pre_window:
