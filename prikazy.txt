@@ -3,3 +3,20 @@ ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.9, y: 0.0, z: 0.
 ros2 launch mpc_rbt_simulator simulation.launch.py
 
 source install/setup.bash
+
+ros2 run mpc_rbt_student keyboard_control
+
+ros2 topic hz /odometry 			zjistis jestli se neco meni
+
+ros2 launch mpc_rbt_student solution.launch.py
+
+
+
+
+
+
+
+
+
+
+

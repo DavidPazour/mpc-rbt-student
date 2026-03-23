@@ -39,7 +39,10 @@ set(dependencies
         mpc_rbt_simulator
 )
 
-add_library(${PROJECT_NAME} SHARED src/KeyboardControl.cpp)
+add_library(${PROJECT_NAME} SHARED 
+		src/KeyboardControl.cpp
+		src/Localization.cpp
+)
 
 ament_target_dependencies(${PROJECT_NAME} ${dependencies})
 install(TARGETS ${PROJECT_NAME}
@@ -58,6 +61,9 @@ install(TARGETS keyboard_control DESTINATION lib/${PROJECT_NAME})
 # * * * * * * * * * * * * * * * * *
 # *      Lab 05_localization
 # * * * * * * * * * * * * * * * * *
+add_executable(localization src/localization_node.cpp)
+target_link_libraries(localization ${PROJECT_NAME})
+install(TARGETS localization DESTINATION lib/${PROJECT_NAME})
 
 # * * * * * * * * * * * * * * * * *
 # *      Lab 06_planning
