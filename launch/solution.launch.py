@@ -16,6 +16,16 @@ def generate_launch_description():
             executable='localization',
             name='localization_node',
             output='screen',
+            parameters=[{'use_sim_time': True}],
+        ),
+
+        # Planovaci node
+        Node(
+            package='mpc_rbt_student',
+            executable='planning',
+            name='planning_node',
+            output='screen',
+            parameters=[{'use_sim_time': True}], # Důležité pro synchronizaci s časem simulace (Gazebo)
         ),
 
         # RViz s předpřipraveným configem
