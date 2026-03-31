@@ -4,7 +4,7 @@ PlanningNode::PlanningNode() :
     rclcpp::Node("planning_node") {
 
         // Client for map           - ukol 2
-        map_client_ = this->create_client<nav_msgs::srv::GetMap>("/map");
+        map_client_ = this->create_client<nav_msgs::srv::GetMap>("/map_server/map");
 
         // Service for path         - ukol 3
         plan_service_ = this->create_service<nav_msgs::srv::GetPlan>(
@@ -46,7 +46,7 @@ void PlanningNode::mapCallback(rclcpp::Client<nav_msgs::srv::GetMap>::SharedFutu
             RCLCPP_INFO(get_logger(), "Map received successfully. Resolution: %.2f m/px", map_.info.resolution);
 
             // Po obdržení mapy ji rovnou upravíme (nafoukneme překážky)
-            //dilateMap();
+            dilateMap();
         }
         else {
             RCLCPP_ERROR(get_logger(), "Service call failed: map response is empty.");
@@ -78,7 +78,7 @@ void PlanningNode::dilateMap() {
     nav_msgs::msg::OccupancyGrid dilatedMap = map_;
 
     // Nastavení poloměru nafouknutí (počet buněk)
-    int dilation_cells = 3;
+    int dilation_cells = 4;
 
     for (int y = 0; y < (int)map_.info.height; y++) {
         for (int x = 0; x < (int)map_.info.width; x++) {
@@ -108,6 +108,7 @@ void PlanningNode::dilateMap() {
     RCLCPP_INFO(get_logger(), "Dilation finished.");
 }
 
+
 void PlanningNode::aStar(const geometry_msgs::msg::PoseStamped& start, const geometry_msgs::msg::PoseStamped& goal) {
     // 1. Inicializace cesty a kontrola mapy
     path_.poses.clear();
@@ -121,8 +122,8 @@ void PlanningNode::aStar(const geometry_msgs::msg::PoseStamped& start, const geo
 
     // 2. Převod metrických souřadnic [m] na indexy v mřížce [px]
     auto poseToGrid = [this](double world_x, double world_y, int& grid_x, int& grid_y) {
-        grid_x = std::round((world_x - map_.info.origin.position.x) / map_.info.resolution);
-        grid_y = std::round((world_y - map_.info.origin.position.y) / map_.info.resolution);
+        grid_x = std::floor((world_x - map_.info.origin.position.x) / map_.info.resolution);
+        grid_y = std::floor((world_y - map_.info.origin.position.y) / map_.info.resolution);
         };
 
     int start_x, start_y, goal_x, goal_y;
@@ -131,6 +132,9 @@ void PlanningNode::aStar(const geometry_msgs::msg::PoseStamped& start, const geo
 
     int start_idx = start_y * map_.info.width + start_x;
     int goal_idx = goal_y * map_.info.width + goal_x;
+    
+    RCLCPP_INFO(get_logger(), "Plánuji: StartGrid[%d,%d], GoalGrid[%d,%d]", start_x, start_y, goal_x, goal_y);
+    RCLCPP_INFO(get_logger(), "Mapa info: OriginY: %.2f, Height: %d", map_.info.origin.position.y, map_.info.height);
 
     // Základní kontrola mezí
     if (start_x < 0 || start_x >= (int)map_.info.width || start_y < 0 || start_y >= (int)map_.info.height ||
@@ -229,7 +233,7 @@ void PlanningNode::smoothPath() {
 
     // Parametry algoritmu (vhodné pro mobilní roboty v mřížce)
     float weight_data = 0.5f;   // Jak moc držet bod u původní pozice
-    float weight_smooth = 0.2f; // Jak moc vyhladit (přitáhnout k sousedům)
+    float weight_smooth = 0.5f; // Jak moc vyhladit (přitáhnout k sousedům)
     float tolerance = 0.001f;   // Minimální změna pro ukončení iterací
 
     float change = tolerance;

@@ -6,7 +6,7 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     package_dir = get_package_share_directory('mpc_rbt_student')
-    rviz_config_path = os.path.join(package_dir, 'rviz', 'config.rviz')
+    rviz_config_path = os.path.join(package_dir, 'rviz', 'configNew.rviz')
 
     return LaunchDescription([
 
