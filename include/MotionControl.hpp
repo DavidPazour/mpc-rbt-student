@@ -34,7 +34,7 @@ class MotionControlNode : public rclcpp::Node {
         rclcpp_action::CancelResponse navHandleCancel(const std::shared_ptr<rclcpp_action::ServerGoalHandle<nav2_msgs::action::NavigateToPose>> goal_handle);
         void navHandleAccepted(const std::shared_ptr<rclcpp_action::ServerGoalHandle<nav2_msgs::action::NavigateToPose>> goal_handle);
         
-        void pathCallback(rclcpp::Client<nav_msgs::srv::GetPlan>::SharedFuture);
+        void pathCallback(rclcpp::Client<nav_msgs::srv::GetPlan>::SharedFuture future);
         void odomCallback(const nav_msgs::msg::Odometry & msg);
         void lidarCallback(const sensor_msgs::msg::LaserScan & msg);
     
