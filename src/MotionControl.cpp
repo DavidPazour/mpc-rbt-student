@@ -6,23 +6,24 @@ MotionControlNode::MotionControlNode() :
 
     // 1. Subscriber pro odometrii (pozice robota)
     odometry_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-        "/odom", 10, std::bind(&MotionControlNode::odomCallback, this, std::placeholders::_1));
+        "/odometry", 10, std::bind(&MotionControlNode::odomCallback, this, std::placeholders::_1));
 
-    // 2. Subscriber pro laserový skener (detekce kolizí)
+   // 2. Subscriber pro laserový skener (detekce kolizí)
     lidar_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
-        "/scan", 10, std::bind(&MotionControlNode::lidarCallback, this, std::placeholders::_1));
+    "/tiago_base/Hokuyo_URG_04LX_UG01", rclcpp::SensorDataQoS(), 
+    std::bind(&MotionControlNode::lidarCallback, this, std::placeholders::_1));
 
     // 3. Publisher pro ovládání robota (rychlosti)
     twist_publisher_ = create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
     // 4. Client pro plánování cesty
-    plan_client_ = create_client<nav_msgs::srv::GetPlan>("/planPath");
+    plan_client_ = create_client<nav_msgs::srv::GetPlan>("/plan_path");
 
     // 5. Inicializace Action Serveru (pro navigaci na bod)
     using namespace std::placeholders;
-    nav_server_ = rclcpp_action::create_server<nav2_msgs::action::NavigateToPose>(
+    go_to_goal = rclcpp_action::create_server<nav2_msgs::action::NavigateToPose>(
         this,
-        "navigate_to_pose",
+        "go_to_goal",
         std::bind(&MotionControlNode::navHandleGoal, this, _1, _2),
         std::bind(&MotionControlNode::navHandleCancel, this, _1),
         std::bind(&MotionControlNode::navHandleAccepted, this, _1));
@@ -39,55 +40,36 @@ MotionControlNode::MotionControlNode() :
     }
 }
 
-void MotionControlNode::checkCollision() {
-    // Bezpečnostní vzdálenost (např. 0.3 metru = 30 cm)
-    double thresh = 0.3;
+bool MotionControlNode::checkCollision() {
+    double thresh = 0.3; // Bezpečnostní vzdálenost 
 
-    // Pokud ještě nepřišla žádná data z laseru, nemá smysl nic kontrolovat
-    if (laser_scan_.ranges.empty()) {
-        return;
-    }
+    if (laser_scan_.ranges.empty()) return false;
 
-    // Projdeme všechny naměřené vzdálenosti (paprsky laseru)
     for (size_t i = 0; i < laser_scan_.ranges.size(); ++i) {
+        float r = laser_scan_.ranges[i];
+        float angle = laser_scan_.angle_min + i * laser_scan_.angle_increment;
 
-        // Zkontrolujeme, zda je hodnota platná (často laser vrací 0 nebo nekonečno u chyb měření)
-        // a zda je menší než náš bezpečnostní limit.
-        if (laser_scan_.ranges[i] > laser_scan_.range_min && laser_scan_.ranges[i] < thresh) {
+        // Kontrola pouze předního kužele
+        if (angle > -0.78 && angle < 0.78) {        //pouze cone -45 + 45
+            if (std::isinf(r) || std::isnan(r)) continue;
 
-            // PŘEKÁŽKA DETEKOVÁNA!
-            geometry_msgs::msg::Twist stop_msg;
-            stop_msg.linear.x = 0.0;  // Zastav lineární pohyb
-            stop_msg.angular.z = 0.0; // Zastav rotaci
-
-            // Pošleme příkaz k zastavení motorům
-            twist_publisher_->publish(stop_msg);
-
-            // Vypíšeme varování do terminálu (throttle zajistí, že to nevypíše 100x za sekundu)
-            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "KOLIZE DETEKOVÁNA! Zastavuji robota.");
-
-            // Jakmile najdeme jednu překážku a zastavíme, nemusíme kontrolovat další paprsky
-            return;
+            if (r <= thresh) { 
+                return true; // je pred nami zed
+            }
         }
     }
+    return false; // Cesta vpřed je volná
 }
 
 void MotionControlNode::updateTwist() {
-    // 1. Je navigační akce aktivní a máme naplánovanou cestu?
-    // goal_handle_->is_active() zajistí, že neposíláme rychlosti, pokud akce neprobíhá.
     if (!goal_handle_ || !goal_handle_->is_active() || path_.poses.empty()) {
         return;
     }
 
-    // 2. Extrakce souřadnic cílového bodu (Look-ahead point)
-    double target_x = path_.poses.front().pose.position.x;
-    double target_y = path_.poses.front().pose.position.y;
-
-    // 3. Extrakce aktuální pozice robota z odometrie
     double robot_x = current_pose_.pose.position.x;
     double robot_y = current_pose_.pose.position.y;
 
-    // 4. Výpočet aktuálního natočení robota (Yaw) z Quaternionu
+    // 1. Získání aktuálního úhlu robota (Yaw)
     tf2::Quaternion q(
         current_pose_.pose.orientation.x,
         current_pose_.pose.orientation.y,
@@ -97,41 +79,82 @@ void MotionControlNode::updateTwist() {
     double roll, pitch, robot_yaw;
     m.getRPY(roll, pitch, robot_yaw);
 
-    // 5. Výpočet požadovaného úhlu k cíli (atan2 nám dá absolutní úhel vektoru k cíli)
-    double target_yaw = std::atan2(target_y - robot_y, target_x - robot_x);
+    // --- PARAMETRY PURE PURSUIT ---
+    double Ld = 0.4;                // Look-ahead distance (40 cm před robota)
+    double max_linear_vel = 0.4;    // Max rychlost vpřed
+    double max_angular_vel = 0.8;   // Max rotace
 
-    // Výpočet úhlové odchylky (Error)
-    double angle_error = target_yaw - robot_yaw;
+    // 2. NALEZENÍ LOOK-AHEAD BODU
+    // Jako default vezmeme úplně poslední bod cesty (kdyby náhodou byly všechny moc blízko)
+    double target_x = path_.poses.back().pose.position.x;
+    double target_y = path_.poses.back().pose.position.y;
 
-    // Normalizace odchylky na interval <-PI, PI> pro nejkratší možnou rotaci
-    while (angle_error > M_PI) angle_error -= 2.0 * M_PI;
-    while (angle_error < -M_PI) angle_error += 2.0 * M_PI;
+    // Projdeme celou cestu a najdeme PRVNÍ bod, který je od nás dál než naše kružnice Ld
+    for (size_t i = 0; i < path_.poses.size(); ++i) {
+        double px = path_.poses[i].pose.position.x;
+        double py = path_.poses[i].pose.position.y;
+        double dist = std::hypot(px - robot_x, py - robot_y);
 
-    // --- 6. BEZPEČNÉ PARAMETRY A LIMITY ---
-    double P_angular = 1.5;         // Proporcionální konstanta pro rotaci (P regulátor)
-    double max_linear_vel = 0.2;    // Omezená dopředná rychlost [m/s] (max je teoreticky 1.0)
-    double max_angular_vel = 0.8;   // Omezená rotační rychlost [rad/s]
-
-    // --- 7. VÝPOČET RYCHLOSTÍ (KINETIKA) ---
-    geometry_msgs::msg::Twist twist;
-
-    // Aplikace P-regulátoru pro úhlovou rychlost s oříznutím na maximální povolenou hodnotu
-    double cmd_angular_z = P_angular * angle_error;
-    if (cmd_angular_z > max_angular_vel) cmd_angular_z = max_angular_vel;
-    if (cmd_angular_z < -max_angular_vel) cmd_angular_z = -max_angular_vel;
-
-    twist.angular.z = cmd_angular_z;
-
-    // Logika dopředné rychlosti:
-    // Pokud je robot hodně vytočený mimo směr k cíli, zastavíme ho, ať se nejdřív otočí na místě.
-    // Tím se vyhneme širokým a nepřesným obloukům.
-    if (std::abs(angle_error) > 0.5) {
-        twist.linear.x = 0.0;
+        if (dist >= Ld) {
+            target_x = px;
+            target_y = py;
+            break; // Našli jsme náš bod na kružnici, končíme hledání
+        }
     }
+
+// 3. PŘEVOD DO LOKÁLNÍCH SOUŘADNIC ROBOTA (Získání x_G a y_G)
+    // Nejdřív spočítáme rozdíly v globálních souřadnicích
+    double dx_global = target_x - robot_x;
+    double dy_global = target_y - robot_y;
+
+    // Aplikujeme 2D rotační matici podle aktuálního natočení robota (yaw).
+    // x_G je vzdálenost cíle PŘED/ZA robotem (kladná = před, záporná = za)
+    // y_G je vzdálenost cíle VLEVO/VPRAVO (kladná = vlevo, záporná = vpravo)
+    double x_G = std::cos(robot_yaw) * dx_global + std::sin(robot_yaw) * dy_global;
+    double y_G = -std::sin(robot_yaw) * dx_global + std::cos(robot_yaw) * dy_global;
+
+    double l_sq = Ld * Ld; 
+
+    geometry_msgs::msg::Twist twist;
+    bool obstacle_ahead = checkCollision();
+
+    // 4. CHYTRÁ LOGIKA A KINETIKA (PURE PURSUIT PODLE SLAJDŮ)
+    
+    // Spočítáme si úhel k look-ahead bodu v lokálních souřadnicích.
+    // atan2(Y, X) nám rovnou řekne, o kolik radiánů se musíme otočit.
+    double alpha = std::atan2(y_G, x_G);
+
+    // Pokud je bod o více než 0.5 radiánu (~30 stupňů) mimo naši osu,
+    // NEBO pokud je cíl úplně za námi (alpha se blíží PI), točíme se jako tank!
+    if (std::abs(alpha) > 0.5) { 
+        twist.linear.x = 0.0;
+        // Pokud je alpha kladná (cíl vlevo), točíme se doleva, jinak doprava
+        twist.angular.z = (alpha > 0) ? max_angular_vel : -max_angular_vel;
+    } 
     else {
-        // Pokud směřujeme víceméně k cíli, zrychlujeme úměrně tomu, jak přesně míříme
-        twist.linear.x = max_linear_vel * (1.0 - (std::abs(angle_error) / 0.5));
-        if (twist.linear.x < 0.0) twist.linear.x = 0.0; // Pojistka proti couvání
+        // Cesta je víceméně před námi (jsme natočeni k cíli)
+        if (obstacle_ahead) {
+            geometry_msgs::msg::Twist stop_msg;
+            twist_publisher_->publish(stop_msg);
+            if (goal_handle_ && goal_handle_->is_active()) {
+                auto result = std::make_shared<nav2_msgs::action::NavigateToPose::Result>();
+                goal_handle_->abort(result);
+                RCLCPP_WARN(get_logger(), "!!! KOLIZE VPŘED! Nelze pokračovat k cíli. ZASTAVUJI !!!");
+            }
+            return;
+        } 
+        else {
+            // Zpomalení v prudších zatáčkách (čím větší y_G, tím pomaleji jede)
+            twist.linear.x = max_linear_vel * (1.0 - (std::abs(y_G) / Ld));
+            if (twist.linear.x < 0.05) twist.linear.x = 0.05; // Aby nezastavil úplně
+
+            // TOTO JE TVŮJ VZOREC ZE SLAJDŮ: omega = (2 * v * y_G) / l^2
+            twist.angular.z = (2.0 * twist.linear.x * y_G) / l_sq;
+
+            // Zastropování maximální rotace
+            if (twist.angular.z > max_angular_vel) twist.angular.z = max_angular_vel;
+            if (twist.angular.z < -max_angular_vel) twist.angular.z = -max_angular_vel;
+        }
     }
 
     // 8. Odeslání vypočítaných rychlostí
@@ -182,65 +205,67 @@ void MotionControlNode::navHandleAccepted(const std::shared_ptr<rclcpp_action::S
 }
 
 void MotionControlNode::execute() {
-    // V zadání máš 1 Hz, ale pro plynulé odmazávání bodů z cesty 
-    // doporučuji alespoň 10 Hz (rychlejší reakce). 
+    RCLCPP_INFO(get_logger(), "Pure Pursuit execute() spuštěn!");
     rclcpp::Rate loop_rate(10.0);
 
     auto feedback = std::make_shared<nav2_msgs::action::NavigateToPose::Feedback>();
     auto result = std::make_shared<nav2_msgs::action::NavigateToPose::Result>();
 
     while (rclcpp::ok()) {
-
-        // --- 1. KONTROLA ZRUŠENÍ (CANCEL) ---
+        if (!goal_handle_->is_active()) return;
+        
         if (goal_handle_->is_canceling()) {
             goal_handle_->canceled(result);
-            RCLCPP_INFO(get_logger(), "Navigace byla zrušena uživatelem.");
-
-            // Bezpečnostní zastavení robota
+            RCLCPP_INFO(get_logger(), "Navigace zrušena.");
             geometry_msgs::msg::Twist stop;
             twist_publisher_->publish(stop);
             return;
         }
 
-        // --- 2. LOGIKA SLEDOVÁNÍ CESTY ---
         if (!path_.poses.empty()) {
-            // Kde je aktuální cíl (tzv. Look-ahead bod)
-            double target_x = path_.poses.front().pose.position.x;
-            double target_y = path_.poses.front().pose.position.y;
-
-            // Kde je robot
             double robot_x = current_pose_.pose.position.x;
             double robot_y = current_pose_.pose.position.y;
 
-            // Výpočet vzdálenosti k tomuto bodu (Pythagorova věta)
-            double distance_to_target = std::hypot(target_x - robot_x, target_y - robot_y);
+            // HLEDÁME KONEČNÝ CÍL (poslední prvek v poli)
+            double final_x = path_.poses.back().pose.position.x;
+            double final_y = path_.poses.back().pose.position.y;
+            double distance_to_goal = std::hypot(final_x - robot_x, final_y - robot_y);
 
-            // Pokud jsme k bodu blíž než např. 0.2 metru, "sežereme" ho a jedeme na další
-            if (distance_to_target < 0.2) {
-                path_.poses.erase(path_.poses.begin()); // Smaže první prvek
-            }
-
-            // --- 3. PUBLIKOVÁNÍ FEEDBACKU ---
-            // Aby RViz nebo uživatel věděl, že se něco děje
-            feedback->distance_remaining = distance_to_target; // Můžeš doplnit sofistikovanější výpočet
+            feedback->distance_remaining = distance_to_goal;
             goal_handle_->publish_feedback(feedback);
 
-        }
-        else {
-            // --- 4. JSME V CÍLI ---
-            // Cesta je prázdná, dojeli jsme na konec
+            // JSME V CÍLI? (Tolerance 0.35 metru od finálního bodu)
+            if (distance_to_goal < 0.35) {
+                geometry_msgs::msg::Twist stop;
+                twist_publisher_->publish(stop);
+                goal_handle_->succeed(result);
+                RCLCPP_INFO(get_logger(), "Cíl úspěšně dosažen Pure Pursuit algoritmem!");
+                return;
+            }
 
-            // Zastavíme robota
-            geometry_msgs::msg::Twist stop;
-            twist_publisher_->publish(stop);
+            // ODMAZÁVÁNÍ "PROJETÝCH" BODŮ (Údržba pole)
+            // Najdeme bod na cestě, který je k nám úplně nejblíž, a vše před ním smažeme
+            double min_dist = 1e9; // Velké číslo pro začátek
+            size_t closest_idx = 0;
+            for (size_t i = 0; i < path_.poses.size(); ++i) {
+                double d = std::hypot(path_.poses[i].pose.position.x - robot_x, 
+                                      path_.poses[i].pose.position.y - robot_y);
+                if (d < min_dist) {
+                    min_dist = d;
+                    closest_idx = i;
+                }
+            }
+            
+            // Smažeme všechny body, které jsme už bezpečně minuli
+            if (closest_idx > 0) {
+                path_.poses.erase(path_.poses.begin(), path_.poses.begin() + closest_idx);
+            }
 
-            // Oznámíme úspěch
+        } else {
             goal_handle_->succeed(result);
-            RCLCPP_INFO(get_logger(), "Cíl úspěšně dosažen!");
-            return; // Konec smyčky
+            return;
         }
 
-        // Uspíme vlákno na zbývající zlomek vteřiny
         loop_rate.sleep();
     }
 }
@@ -248,18 +273,18 @@ void MotionControlNode::execute() {
 void MotionControlNode::pathCallback(rclcpp::Client<nav_msgs::srv::GetPlan>::SharedFuture future) {
     auto response = future.get(); // Získáme odpověď ze služby
 
+    RCLCPP_INFO(get_logger(), "pathCallback zavolán, poses: %zu", 
+        response ? response->plan.poses.size() : 0);
+
     // Pokud máme cestu a není prázdná
     if (response && response->plan.poses.size() > 0) {
 
         // 1. Uložíme si cestu do naší globální proměnné, aby k ní mohl updateTwist()
         path_ = response->plan;
 
-        // 2. Řekneme Action Serveru, že začínáme reálně vykonávat úkol
-        goal_handle_->execute();
-
         RCLCPP_INFO(get_logger(), "Cesta nalezena. Začínám sledovat trajektorii.");
 
-        // 3. Spustíme smyčku execute() v novém nezávislém vlákně
+        // 2. Spustíme smyčku execute() v novém nezávislém vlákně
         std::thread(&MotionControlNode::execute, this).detach();
 
     }
@@ -272,18 +297,14 @@ void MotionControlNode::pathCallback(rclcpp::Client<nav_msgs::srv::GetPlan>::Sha
 }
 
 void MotionControlNode::odomCallback(const nav_msgs::msg::Odometry& msg) {
-    // 1. NEJDŮLEŽITĚJŠÍ: Uložíme si aktuální polohu robota z odometrie do členské proměnné.
-    // Bez tohohle by funkce updateTwist() a execute() nevěděly, kde robot zrovna je!
     current_pose_.pose = msg.pose.pose;
-
-    // 2. Provedeme kontrolu okolí z laseru (bezpečnost)
-    checkCollision();
-
-    // 3. Vypočítáme odchylku a pošleme rychlosti do motorů
+    
+    // Žádné ify. Necháme rozhodnutí čistě na mozku.
     updateTwist();
 }
 
 void MotionControlNode::lidarCallback(const sensor_msgs::msg::LaserScan & msg) {
+    //RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 2000, "LIDAR FUNGUJE! Vidim %zu paprsku.", msg.ranges.size());
     // Vždy, když přijde nová zpráva z laseru, uložíme si ji
     laser_scan_ = msg;
 }

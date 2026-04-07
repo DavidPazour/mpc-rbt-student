@@ -25,7 +25,7 @@ class MotionControlNode : public rclcpp::Node {
         // TO DO
 
         // Methods
-        void checkCollision();
+        bool checkCollision();
         void updateTwist();
         void execute();
             
@@ -42,7 +42,7 @@ class MotionControlNode : public rclcpp::Node {
         rclcpp::Client<nav_msgs::srv::GetPlan>::SharedPtr plan_client_;    
     
         // Actions
-        rclcpp_action::Server<nav2_msgs::action::NavigateToPose>::SharedPtr nav_server_;
+        rclcpp_action::Server<nav2_msgs::action::NavigateToPose>::SharedPtr go_to_goal;
     
         // Publishers
         rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr twist_publisher_;
