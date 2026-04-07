@@ -28,6 +28,15 @@ def generate_launch_description():
             parameters=[{'use_sim_time': True}], # Důležité pro synchronizaci s časem simulace (Gazebo)
         ),
 
+        # motion control node
+        Node(
+            package='mpc_rbt_student',
+            executable='motion_control',
+            name='motion_control_node',
+            output='screen',
+            parameters=[{'use_sim_time': True}],
+        ),
+
         # RViz s předpřipraveným configem
         Node(
             package='rviz2',
