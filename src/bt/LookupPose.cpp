@@ -19,6 +19,23 @@ public:
         // Manipulátory: ID "1", "2", "3" (viz tabulka v zadání).
         // Sklady: ID "A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2" (viz tabulka v zadání).
         // Příklad: pose_table_["1"] = { 4.5, 1.5 };
+        // --- Manipulátory ---
+        pose_table_["1"] = { 4.5,  1.5 };
+        pose_table_["2"] = { 4.5, -0.5 };
+        pose_table_["3"] = { 4.5, -2.5 };
+
+        // --- Skladové pozice ---
+        pose_table_["A1"] = { 1.5,  0.5 };
+        pose_table_["A2"] = { 1.5, -1.5 };
+
+        pose_table_["B1"] = { -0.5,  0.5 };
+        pose_table_["B2"] = { -0.5, -1.5 };
+
+        pose_table_["C1"] = { -2.5,  0.5 };
+        pose_table_["C2"] = { -2.5, -1.5 };
+
+        pose_table_["D1"] = { -4.5,  0.5 };
+        pose_table_["D2"] = { -4.5, -1.5 };
     }
 
     static BT::PortsList providedPorts()
@@ -36,7 +53,13 @@ public:
         // Vyhledejte ID v pose_table_. Pokud neexistuje, vraťte FAILURE.
         // Zapište souřadnice do output portů "x" a "y" pomocí setOutput().
         // Vraťte SUCCESS.
-        return BT::NodeStatus::FAILURE;
+        auto id = getInput<std::string>("location_id");
+        if (!id) return BT::NodeStatus::FAILURE;
+        auto it = pose_table_.find(id.value());
+        if (it == pose_table_.end()) return BT::NodeStatus::FAILURE;
+        setOutput("x", it->second.x);
+        setOutput("y", it->second.y);
+        return BT::NodeStatus::SUCCESS;
     }
 
 private:

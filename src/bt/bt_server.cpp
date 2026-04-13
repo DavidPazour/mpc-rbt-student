@@ -5,13 +5,26 @@
 // Konstruktor přijímá const rclcpp::NodeOptions& a předá je rodičovské třídě.
 // Volitelně přepište metodu onTreeCreated() pro přidání loggeru (BT::StdCoutLogger).
 
-int main(int argc, char** argv)
-{
+class BTServer : public BT::TreeExecutionServer {
+public:
+    BTServer(const rclcpp::NodeOptions& options)
+        : TreeExecutionServer(options) {}
+
+    void onTreeCreated(BT::Tree& tree) override {
+        RCLCPP_INFO(this->node()->get_logger(), "Behavior Tree created succesfully!");
+
+        // Tímto kompilátoru řekneme, že parametr záměrně nevyužíváme
+        (void)tree;
+    }
+};
+
+int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-
-    // TODO: Vytvořte instanci BTServer s výchozími NodeOptions.
-    // Vytvořte MultiThreadedExecutor, přidejte do něj server->node() a zavolejte spin().
-
+    rclcpp::NodeOptions options;
+    auto server = std::make_shared<BTServer>(options);
+    rclcpp::executors::MultiThreadedExecutor exec;
+    exec.add_node(server->node());
+    exec.spin();
     rclcpp::shutdown();
     return 0;
 }

@@ -15,13 +15,26 @@
       <NavigateToPoseAction action_name="/go_to_goal"
                             x="{goal_x}" y="{goal_y}"/>
 
-      <!-- TODO: Doplňte zbytek mise:
+      <!-- TODO: Doplňte zbytek mise: -->
            4. Potvrzení nakládky (ConfirmLoadingService)
+	<ConfirmLoadingService service_name="/confirm_loading"/>
+
            5. Zjištění cílového skladu (GetDropoffService)
+	<GetDropoffService service_name="/get_dropoff_location"
+                         storage_id="{storage_id}"/>
+
            6. Převod ID skladu na souřadnice (LookupPose)
+	<LookupPose location_id="{storage_id}"
+                  x="{goal_x}" y="{goal_y}"/>
+
            7. Navigace do skladu (NavigateToPoseAction)
+	 <NavigateToPoseAction action_name="/go_to_goal"
+                            x="{goal_x}" y="{goal_y}"/>
+
            8. Návrat na startovní pozici [0, 0] (NavigateToPoseAction)
-      -->
+	<NavigateToPoseAction action_name="/go_to_goal"
+                            x="0.0" y="0.0"/>
+
 
     </Sequence>
   </BehaviorTree>
