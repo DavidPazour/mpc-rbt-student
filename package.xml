@@ -19,6 +19,9 @@
   <depend>tf2_ros</depend>
   <depend>tf2</depend>
   <depend>tf2_geometry_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>behaviortree_cpp</depend>
+  <depend>behaviortree_ros2</depend>
 
   <depend>mpc_rbt_simulator</depend>
 
