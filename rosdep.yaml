@@ -1,0 +1,6 @@
+behaviortree_ros2:
+  ubuntu:
+    source:
+      type: git
+      url: https://github.com/BehaviorTree/BehaviorTree.ROS2.git
+      version: master

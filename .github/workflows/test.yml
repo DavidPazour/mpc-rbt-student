@@ -35,14 +35,6 @@ jobs:
           fetch-depth: 1
           repository: Robotics-BUT/mpc-rbt-simulator
           path: mpc_rbt_simulator
-	# --- PŘIDÁNO: Stažení knihovny pro Behavior Trees ---
-      - name: Checkout BehaviorTree.ROS2 dependency code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          repository: BehaviorTree/BehaviorTree.ROS2
-          path: BehaviorTree.ROS2
-      # ----------------------------------------------------
       - name: Install required ROS 2 dependencies
         shell: bash
         run: |
@@ -78,14 +70,6 @@ jobs:
           fetch-depth: 1
           repository: Robotics-BUT/mpc-rbt-simulator
           path: mpc_rbt_simulator
-	# --- PŘIDÁNO: Stažení knihovny pro Behavior Trees ---
-      - name: Checkout BehaviorTree.ROS2 dependency code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          repository: BehaviorTree/BehaviorTree.ROS2
-          path: BehaviorTree.ROS2
-      # ----------------------------------------------------
       - name: Install required ROS 2 dependencies
         shell: bash
         run: |
