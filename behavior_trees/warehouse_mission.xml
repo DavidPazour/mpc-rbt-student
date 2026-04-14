@@ -33,7 +33,7 @@
 
       <!-- 8. Návrat na startovní pozici [0, 0] (NavigateToPoseAction) -->
 	<NavigateToPoseAction action_name="/go_to_goal"
-                            x="0.0" y="0.0"/>
+                            x="-0.5" y="0.0"/>
 
 
     </Sequence>

@@ -78,7 +78,7 @@ void PlanningNode::dilateMap() {
     nav_msgs::msg::OccupancyGrid dilatedMap = map_;
 
     // Nastavení poloměru nafouknutí (počet buněk)
-    int dilation_cells = 3;
+    int dilation_cells = 8;
 
     for (int y = 0; y < (int)map_.info.height; y++) {
         for (int x = 0; x < (int)map_.info.width; x++) {

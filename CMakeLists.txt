@@ -154,8 +154,8 @@ install(DIRECTORY
         launch
         rviz
         # TODO (Lab 08): Odkomentujte po implementaci BT
-        # behavior_trees
-        # config
+        behavior_trees
+        config
         DESTINATION share/${PROJECT_NAME}/
 )
 

@@ -20,3 +20,5 @@ git clone https://github.com/BehaviorTree/BehaviorTree.ROS2.git
 cd ~/workspace
 source install/setup.bash
 colcon build
+
+ros2 action send_goal /bt_execution btcpp_ros2_interfaces/action/ExecuteTree "{target_tree: 'WarehouseMission'}"
